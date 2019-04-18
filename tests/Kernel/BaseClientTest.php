@@ -214,7 +214,7 @@ class BaseClientTest extends TestCase
     {
         // no retries configured
         $app = new ServiceContainer([]);
-        $app['logger'] = $logger = \Mockery::mock(Logger::class, ['easywechat']);
+        $app['logger'] = $logger = \Mockery::mock('stdClass');
         $accessToken = \Mockery::mock(AccessToken::class, [$app]);
         $client = $this->makeClient(['retryMiddleware'], $app, $accessToken)
             ->shouldAllowMockingProtectedMethods()
@@ -254,7 +254,7 @@ class BaseClientTest extends TestCase
         $this->assertSame('{"errcode":42001}', $response->getBody()->getContents());
 
         // default once with configured retries
-        $app['config']['http'] = ['retries' => 0];
+        $app['config']['http'] = ['max_retries' => 0];
         $logger->expects()->debug('Retrying with refreshed access token.')->never();
         $accessToken->expects()->refresh()->never();
         $handler = new MockHandler([
@@ -272,7 +272,7 @@ class BaseClientTest extends TestCase
 
         // 3 times
         $app['config']['http'] = [
-            'retries' => 3,
+            'max_retries' => 3,
             'retry_delay' => 1,
         ];
         $logger->expects()->debug('Retrying with refreshed access token.')->times(3);

@@ -14,6 +14,7 @@ namespace EasyWeChat\Tests\Kernel;
 use EasyWeChat\Kernel\AccessToken;
 use EasyWeChat\Kernel\Exceptions\HttpException;
 use EasyWeChat\Kernel\Exceptions\InvalidArgumentException;
+use EasyWeChat\Kernel\Exceptions\RuntimeException;
 use EasyWeChat\Kernel\ServiceContainer;
 use EasyWeChat\Kernel\Support\Collection;
 use EasyWeChat\Tests\TestCase;
@@ -91,19 +92,31 @@ class AccessTokenTest extends TestCase
         $token->allows()->getCacheKey()->andReturn('mock-cache-key');
         $token->allows()->getCache()->andReturn($cache);
 
+        $cache->expects()->has('mock-cache-key')->andReturn(true);
         $cache->expects()->set('mock-cache-key', [
             'access_token' => 'mock-token',
             'expires_in' => 7200,
-        ], 7200 - 500)->once();
+        ], 7200 - 500)->once()->andReturn(true);
         $result = $token->setToken('mock-token');
         $this->assertSame($token, $result);
 
+        // 7000
+        $cache->expects()->has('mock-cache-key')->andReturn(true);
         $cache->expects()->set('mock-cache-key', [
             'access_token' => 'mock-token',
             'expires_in' => 7000,
-        ], 7000 - 500)->once();
+        ], 7000 - 500)->once()->andReturn(true);
         $result = $token->setToken('mock-token', 7000);
         $this->assertSame($token, $result);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Failed to cache access token.');
+        $cache->expects()->has('mock-cache-key')->andReturn(false);
+        $cache->expects()->set('mock-cache-key', [
+            'access_token' => 'mock-token',
+            'expires_in' => 7000,
+        ], 7000 - 500)->once()->andReturn(false);
+        $token->setToken('mock-token', 7000);
     }
 
     public function testRefresh()
@@ -257,6 +270,17 @@ class AccessTokenTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('No endpoint for access token request.');
         $token->getEndpoint();
+    }
+
+    public function testGetTokenKey()
+    {
+        $token = \Mockery::mock(AccessToken::class)->makePartial();
+
+        $this->assertSame('access_token', $token->getTokenKey());
+
+        $DummyAccessToken = \Mockery::mock(DummyAccessTokenForTest::class)->makePartial();
+
+        $this->assertSame('foo', $DummyAccessToken->getTokenKey());
     }
 }
 
